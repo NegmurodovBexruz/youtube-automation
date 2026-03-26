@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTube Automation Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<style>
+/* ── Variables ── */
+:root {
+  --bg:       #09090f;
+  --surface:  #11111c;
+  --surface2: #191926;
+  --surface3: #20202f;
+  --border:   #2a2a3d;
+  --red:      #e63950;
+  --orange:   #f9a825;
+  --blue:     #4a7eff;
+  --green:    #1db954;
+  --purple:   #9b59b6;
+  --text:     #e2e2f0;
+  --muted:    #6b6b85;
+  --radius:   12px;
+  --shadow:   0 8px 40px rgba(0,0,0,.6);
+  --font:     'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Layout ── */
+.layout { display: flex; height: 100vh; }
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 260px; flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+}
+.sidebar-logo {
+  padding: 20px 18px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.logo-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--red), var(--orange));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; flex-shrink: 0;
+}
+.logo-text { font-size: .95rem; font-weight: 800; line-height: 1.2; }
+.logo-text small { display: block; font-size: .68rem; color: var(--muted); font-weight: 400; }
+
+.sidebar-section { padding: 12px 10px; }
+.sidebar-label {
+  font-size: .65rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .1em;
+  padding: 0 8px; margin-bottom: 6px;
+}
+.job-item {
+  padding: 9px 10px; border-radius: 8px; cursor: pointer;
+  transition: background .15s; margin-bottom: 2px;
+  display: flex; align-items: center; gap: 8px;
+}
+.job-item:hover { background: var(--surface2); }
+.job-item.active { background: var(--surface3); }
+.job-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.job-dot.pending   { background: var(--muted); }
+.job-dot.searching { background: var(--blue); animation: pulse 1.2s infinite; }
+.job-dot.scraping  { background: var(--orange); animation: pulse 1.2s infinite; }
+.job-dot.analyzing { background: var(--purple); animation: pulse 1.2s infinite; }
+.job-dot.done      { background: var(--green); }
+.job-dot.error     { background: var(--red); }
+.job-info { flex: 1; min-width: 0; }
+.job-query { font-size: .82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.job-status-text { font-size: .68rem; color: var(--muted); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: .5; transform: scale(1.3); }
+}
+
+/* ── Main content ── */
+.main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+
+/* ── Top bar ── */
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 28px;
+  display: flex; align-items: center; gap: 16px;
+  flex-wrap: wrap;
+}
+.topbar h1 { font-size: 1.1rem; font-weight: 700; flex: 1; }
+.ws-badge {
+  display: flex; align-items: center; gap: 6px;
+  font-size: .75rem; color: var(--muted);
+  padding: 5px 12px; background: var(--surface2);
+  border-radius: 20px; border: 1px solid var(--border);
+}
+.ws-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.ws-dot.connected { background: var(--green); animation: pulse 2s infinite; }
+
+/* ── Content area ── */
+.content { flex: 1; padding: 24px 28px; }
+
+/* ── Start form ── */
+.start-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  margin-bottom: 24px;
+}
+.start-card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 18px; color: var(--orange); }
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 140px 140px;
+  gap: 12px; align-items: end;
+  flex-wrap: wrap;
+}
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group label { font-size: .75rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.form-input, .form-select {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 9px 12px;
+  color: var(--text); font-size: .88rem; font-family: var(--font);
+  outline: none; transition: border-color .2s;
+}
+.form-input:focus, .form-select:focus { border-color: var(--blue); }
+.form-row { display: flex; gap: 12px; align-items: end; margin-top: 12px; flex-wrap: wrap; }
+.form-check { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); cursor: pointer; user-select: none; }
+.form-check input { accent-color: var(--blue); width: 16px; height: 16px; cursor: pointer; }
+.btn {
+  padding: 10px 24px; border-radius: 8px; border: none;
+  font-size: .88rem; font-weight: 700; font-family: var(--font);
+  cursor: pointer; transition: all .2s; white-space: nowrap;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--red), var(--orange));
+  color: #fff; box-shadow: 0 4px 14px rgba(230,57,80,.3);
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(230,57,80,.4); }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.btn-ghost {
+  background: var(--surface2); color: var(--muted);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { background: var(--surface3); color: var(--text); }
+
+/* ── Progress section ── */
+.progress-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+  margin-bottom: 24px;
+  display: none;
+}
+.progress-card.visible { display: block; }
+.progress-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.progress-title { font-size: .95rem; font-weight: 700; flex: 1; }
+.progress-pct { font-size: 1.4rem; font-weight: 800; color: var(--orange); }
+.progress-bar-wrap {
+  background: var(--surface2);
+  border-radius: 6px; height: 8px; overflow: hidden;
+  margin-bottom: 16px;
+}
+.progress-bar {
+  height: 100%; border-radius: 6px;
+  background: linear-gradient(90deg, var(--red), var(--orange));
+  transition: width .4s ease;
+  width: 0%;
+}
+.log-box {
+  background: var(--surface2); border-radius: 8px;
+  padding: 12px 14px; max-height: 200px; overflow-y: auto;
+  font-size: .78rem; font-family: 'Consolas', 'Courier New', monospace;
+  color: var(--muted); border: 1px solid var(--border);
+}
+.log-line { padding: 2px 0; border-bottom: 1px solid var(--border); }
+.log-line:last-child { border: none; }
+.log-line.success { color: var(--green); }
+.log-line.error   { color: var(--red); }
+.log-line.info    { color: var(--blue); }
+
+/* ── Live video feed ── */
+.live-feed {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.vcard-mini {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+  animation: fadeIn .4s ease;
+  transition: transform .2s, box-shadow .2s;
+}
+.vcard-mini:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+@keyframes fadeIn { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform: translateY(0); } }
+.vcard-mini img { width: 100%; height: 155px; object-fit: cover; display: block; }
+.vcard-mini-body { padding: 12px; }
+.vcard-mini-title { font-size: .84rem; font-weight: 700; margin-bottom: 6px; line-height: 1.4; }
+.vcard-mini-title a { color: var(--text); text-decoration: none; }
+.vcard-mini-title a:hover { color: var(--orange); }
+.vcard-mini-meta { display: flex; gap: 10px; font-size: .72rem; color: var(--muted); flex-wrap: wrap; }
+.vcard-mini-badge {
+  display: inline-block; font-size: .65rem; font-weight: 700;
+  padding: 2px 7px; border-radius: 10px; margin-left: auto;
+}
+.vcard-mini-badge.shorts   { background: rgba(230,57,80,.2); color: var(--red); }
+.vcard-mini-badge.standard { background: rgba(74,126,255,.2); color: var(--blue); }
+
+/* ── Analytics panel ── */
+.analytics-panel { display: none; }
+.analytics-panel.visible { display: block; }
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px; margin-bottom: 24px;
+}
+.kpi {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 16px;
+  position: relative; overflow: hidden;
+  transition: transform .2s;
+}
+.kpi:hover { transform: translateY(-2px); }
+.kpi::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--c, var(--orange));
+}
+.kpi-icon { font-size: 1.4rem; margin-bottom: 8px; }
+.kpi-val { font-size: 1.3rem; font-weight: 800; color: var(--c, var(--orange)); }
+.kpi-lbl { font-size: .7rem; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: .04em; }
+
+.charts-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px; margin-bottom: 24px;
+}
+.chart-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px;
+}
+.chart-box h3 { font-size: .78rem; color: var(--muted); margin-bottom: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.chart-box canvas { max-height: 200px; }
+
+/* ── Report link ── */
+.report-banner {
+  background: linear-gradient(135deg, rgba(230,57,80,.15), rgba(249,168,37,.1));
+  border: 1px solid rgba(230,57,80,.3);
+  border-radius: var(--radius); padding: 18px 22px;
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 24px; display: none;
+}
+.report-banner.visible { display: flex; }
+.report-banner .icon { font-size: 2rem; }
+.report-banner .info { flex: 1; }
+.report-banner .info strong { display: block; font-size: .95rem; margin-bottom: 3px; }
+.report-banner .info small { color: var(--muted); font-size: .8rem; }
+.btn-report {
+  background: linear-gradient(135deg, var(--red), var(--orange));
+  color: #fff; padding: 10px 20px; border-radius: 8px;
+  font-weight: 700; font-size: .85rem; text-decoration: none;
+  white-space: nowrap; transition: opacity .2s;
+}
+.btn-report:hover { opacity: .85; }
+
+/* ── Empty state ── */
+.empty-state {
+  text-align: center; padding: 60px 20px; color: var(--muted);
+}
+.empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+.empty-state p { font-size: .9rem; }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .sidebar { width: 0; display: none; }
+  .form-grid { grid-template-columns: 1fr; }
+  .content { padding: 16px; }
+  .topbar { padding: 12px 16px; }
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- Sidebar: job list -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">📊</div>
+      <div class="logo-text">YT Automation <small>Real-time Dashboard</small></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Joblar</div>
+      <div id="jobList">
+        <div class="empty-state" style="padding:24px 8px;font-size:.8rem">
+          <div>📋</div>Hali job yo'q
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <h1 id="topbarTitle">YouTube Automation</h1>
+      <div class="ws-badge">
+        <div class="ws-dot" id="wsDot"></div>
+        <span id="wsStatus">Ulanish yo'q</span>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- Start form -->
+      <div class="start-card">
+        <h2>🚀 Yangi Scraping Boshlash</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Qidiruv so'zi</label>
+            <input class="form-input" id="queryInput" type="text" value="you tube" placeholder="Masalan: python tutorial">
+          </div>
+          <div class="form-group">
+            <label>Video soni</label>
+            <select class="form-select" id="maxVideos">
+              <option value="5">5 ta</option>
+              <option value="10" selected>10 ta</option>
+              <option value="15">15 ta</option>
+              <option value="20">20 ta</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Format</label>
+            <select class="form-select" id="saveFormat">
+              <option value="both" selected>JSON + CSV</option>
+              <option value="json">JSON</option>
+              <option value="csv">CSV</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="form-check">
+            <input type="checkbox" id="headlessCheck" checked>
+            Headless rejim
+          </label>
+          <label class="form-check">
+            <input type="checkbox" id="parallelCheck">
+            Parallel scraping
+          </label>
+          <div class="form-group" id="workersGroup" style="display:none">
+            <label>Workers</label>
+            <select class="form-select" id="workersSelect">
+              <option value="2">2</option>
+              <option value="3" selected>3</option>
+              <option value="4">4</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" id="startBtn" onclick="startScraping()">▶ Boshlash</button>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div class="progress-card" id="progressCard">
+        <div class="progress-header">
+          <div class="progress-title" id="progressTitle">Ishga tushirilmoqda...</div>
+          <div class="progress-pct" id="progressPct">0%</div>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="log-box" id="logBox"></div>
+      </div>
+
+      <!-- Report banner -->
+      <div class="report-banner" id="reportBanner">
+        <div class="icon">📄</div>
+        <div class="info">
+          <strong>HTML Hisobot tayyor!</strong>
+          <small>Barcha ma'lumotlar va grafiklar bilan to'liq dashboard</small>
+        </div>
+        <a class="btn-report" id="reportLink" href="#" target="_blank">Hisobotni Ko'rish →</a>
+      </div>
+
+      <!-- Live video feed -->
+      <div id="liveFeedSection" style="display:none">
+        <div style="font-size:.8rem;color:var(--muted);margin-bottom:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">
+          📺 Yig'ilgan Videolar — Real-time
+        </div>
+        <div class="live-feed" id="liveFeed"></div>
+      </div>
+
+      <!-- Analytics -->
+      <div class="analytics-panel" id="analyticsPanel">
+        <div style="font-size:.8rem;color:var(--muted);margin-bottom:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">
+          📈 Tahlil
+        </div>
+        <div class="kpi-row" id="kpiRow"></div>
+        <div class="charts-row">
+          <div class="chart-box"><h3>👁 Ko'rishlar</h3><canvas id="cViews"></canvas></div>
+          <div class="chart-box"><h3>❤️ Likelar</h3><canvas id="cLikes"></canvas></div>
+          <div class="chart-box"><h3>⚡ Shorts / Standard</h3><canvas id="cType"></canvas></div>
+          <div class="chart-box"><h3>⏱ Davomiylik</h3><canvas id="cDur"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Empty -->
+      <div class="empty-state" id="emptyState">
+        <div class="icon">🎬</div>
+        <p>Yangi scraping boshlash uchun yuqoridagi formni to'ldiring</p>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<script>
+// ── State ──────────────────────────────────────────────
+const state = {
+  jobs: {},
+  activeJobId: null,
+  ws: null,
+  charts: {},
+};
+
+// ── Parallel toggle ────────────────────────────────────
+document.getElementById('parallelCheck').addEventListener('change', e => {
+  document.getElementById('workersGroup').style.display = e.target.checked ? 'block' : 'none';
+});
+
+// ── Format numbers ─────────────────────────────────────
+function fmtNum(n) {
+  if (!n) return '0';
+  if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return n.toLocaleString();
+}
+
+// ── Start scraping ─────────────────────────────────────
+async function startScraping() {
+  const btn = document.getElementById('startBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Ishga tushirilmoqda...';
+
+  const body = {
+    query:        document.getElementById('queryInput').value.trim() || 'you tube',
+    max_videos:   parseInt(document.getElementById('maxVideos').value),
+    headless:     document.getElementById('headlessCheck').checked,
+    parallel:     document.getElementById('parallelCheck').checked,
+    workers:      parseInt(document.getElementById('workersSelect').value),
+    save_format:  document.getElementById('saveFormat').value,
+  };
+
+  try {
+    const res = await fetch('/api/scrape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    const jobId = data.job_id;
+
+    // Job state
+    state.jobs[jobId] = { ...body, status: 'pending', videos: [] };
+    state.activeJobId = jobId;
+
+    // UI reset
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('liveFeedSection').style.display = 'none';
+    document.getElementById('liveFeed').innerHTML = '';
+    document.getElementById('analyticsPanel').classList.remove('visible');
+    document.getElementById('reportBanner').classList.remove('visible');
+    document.getElementById('progressCard').classList.add('visible');
+    document.getElementById('logBox').innerHTML = '';
+    setProgress(0, 'Boshlandi...');
+
+    // Sidebar
+    addJobToSidebar(jobId, body.query, 'pending');
+
+    // WebSocket
+    connectWS(jobId);
+
+  } catch (err) {
+    addLog('❌ Server xato: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ Boshlash';
+  }
+}
+
+// ── WebSocket ──────────────────────────────────────────
+function connectWS(jobId) {
+  if (state.ws) { state.ws.close(); }
+
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws/${jobId}`);
+  state.ws = ws;
+
+  setWsStatus(false);
+
+  ws.onopen = () => {
+    setWsStatus(true);
+    addLog('🔗 WebSocket ulandi', 'info');
+  };
+
+  ws.onmessage = (e) => handleWsMessage(JSON.parse(e.data));
+
+  ws.onclose = () => {
+    setWsStatus(false);
+    addLog('WebSocket uzildi', '');
+  };
+
+  ws.onerror = () => addLog('❌ WebSocket xato', 'error');
+
+  // Keepalive ping
+  const ping = setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) ws.send('ping');
+    else clearInterval(ping);
+  }, 20000);
+}
+
+// ── WS message handler ─────────────────────────────────
+function handleWsMessage(msg) {
+  if (msg.type === 'ping') return;
+
+  const jobId = msg.job_id || state.activeJobId;
+
+  switch (msg.type) {
+    case 'connected':
+      addLog('✅ Job bilan ulandi: ' + jobId, 'info');
+      break;
+
+    case 'log':
+      addLog(msg.message);
+      if (msg.status) updateJobStatus(jobId, msg.status);
+      if (msg.percent != null) setProgress(msg.percent, msg.message);
+      break;
+
+    case 'progress':
+      setProgress(msg.percent, msg.message);
+      addLog(`🔍 ${msg.message}`);
+      break;
+
+    case 'video_done':
+      setProgress(msg.percent, `Video ${msg.current}/${msg.total} yakunlandi`);
+      addLog(`✓ [${msg.current}/${msg.total}] ${msg.video?.title?.slice(0, 50) || '...'}`, 'success');
+      addVideoCard(msg.video);
+      updateJobStatus(jobId, 'scraping');
+      break;
+
+    case 'video_error':
+      addLog(`✗ [${msg.current}/${msg.total}] Video olinmadi`, 'error');
+      break;
+
+    case 'done':
+      setProgress(100, '✅ Yakunlandi!');
+      addLog(`🎉 ${msg.message || 'Scraping yakunlandi!'}`, 'success');
+      updateJobStatus(jobId, 'done');
+      document.getElementById('topbarTitle').textContent =
+        `✅ Yakunlandi — ${msg.total} ta video`;
+
+      if (msg.analytics) renderAnalytics(msg.analytics, msg.videos || []);
+      if (msg.report_url) showReportBanner(msg.report_url);
+      break;
+
+    case 'error':
+      addLog('❌ Xato: ' + msg.message, 'error');
+      updateJobStatus(jobId, 'error');
+      break;
+  }
+}
+
+// ── UI helpers ─────────────────────────────────────────
+function setProgress(pct, text) {
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressPct').textContent = pct + '%';
+  if (text) document.getElementById('progressTitle').textContent = text;
+}
+
+function addLog(text, cls = '') {
+  const box = document.getElementById('logBox');
+  const ts = new Date().toLocaleTimeString('uz-UZ', { hour12: false });
+  const line = document.createElement('div');
+  line.className = 'log-line' + (cls ? ' ' + cls : '');
+  line.textContent = `[${ts}] ${text}`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function addVideoCard(v) {
+  if (!v) return;
+  const sec = document.getElementById('liveFeedSection');
+  sec.style.display = 'block';
+  const feed = document.getElementById('liveFeed');
+  const badgeCls = v.video_type === 'shorts' ? 'shorts' : 'standard';
+  const badgeTxt = v.video_type === 'shorts' ? '⚡ Shorts' : '▶ Standard';
+  const div = document.createElement('div');
+  div.className = 'vcard-mini';
+  div.innerHTML = `
+    <img src="${v.thumbnail || ''}" alt="${v.title || ''}"
+         onerror="this.src='https://placehold.co/480x270/11111c/444?text=No+Preview'">
+    <div class="vcard-mini-body">
+      <div class="vcard-mini-title">
+        <a href="${v.url || '#'}" target="_blank">${(v.title || 'N/A').slice(0, 70)}</a>
+        <span class="vcard-mini-badge ${badgeCls}">${badgeTxt}</span>
+      </div>
+      <div class="vcard-mini-meta">
+        <span>👁 ${fmtNum(v.views)}</span>
+        <span>❤️ ${fmtNum(v.likes)}</span>
+        <span>⏱ ${v.duration || '--'}</span>
+        <span>📺 ${(v.channel || 'N/A').slice(0, 20)}</span>
+      </div>
+    </div>`;
+  feed.prepend(div);
+}
+
+function showReportBanner(url) {
+  const banner = document.getElementById('reportBanner');
+  document.getElementById('reportLink').href = url;
+  banner.classList.add('visible');
+}
+
+// ── Sidebar job management ──────────────────────────────
+function addJobToSidebar(jobId, query, status) {
+  const list = document.getElementById('jobList');
+  const empty = list.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  const div = document.createElement('div');
+  div.className = 'job-item active';
+  div.id = 'job-' + jobId;
+  div.onclick = () => switchJob(jobId);
+  div.innerHTML = `
+    <div class="job-dot ${status}" id="dot-${jobId}"></div>
+    <div class="job-info">
+      <div class="job-query">${query}</div>
+      <div class="job-status-text" id="jst-${jobId}">${status}</div>
+    </div>`;
+
+  // Deselect others
+  list.querySelectorAll('.job-item').forEach(i => i.classList.remove('active'));
+  list.prepend(div);
+}
+
+function updateJobStatus(jobId, status) {
+  const dot = document.getElementById('dot-' + jobId);
+  const txt = document.getElementById('jst-' + jobId);
+  if (dot) dot.className = 'job-dot ' + status;
+  if (txt) txt.textContent = status;
+  if (state.jobs[jobId]) state.jobs[jobId].status = status;
+}
+
+function switchJob(jobId) {
+  state.activeJobId = jobId;
+  document.querySelectorAll('.job-item').forEach(i => i.classList.remove('active'));
+  const el = document.getElementById('job-' + jobId);
+  if (el) el.classList.add('active');
+  // TODO: restore job state in main panel
+}
+
+// ── Analytics rendering ─────────────────────────────────
+function renderAnalytics(a, videos) {
+  const panel = document.getElementById('analyticsPanel');
+  panel.classList.add('visible');
+
+  const v = a.views || {};
+  const l = a.likes || {};
+  const t = a.video_types || {};
+  const d = a.duration || {};
+  const ch = a.channels || {};
+
+  // KPI cards
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi" style="--c:var(--blue)">
+      <div class="kpi-icon">👁️</div>
+      <div class="kpi-val">${fmtNum(v.average)}</div>
+      <div class="kpi-lbl">O'rtacha ko'rishlar</div>
+    </div>
+    <div class="kpi" style="--c:var(--red)">
+      <div class="kpi-icon">❤️</div>
+      <div class="kpi-val">${fmtNum(l.average)}</div>
+      <div class="kpi-lbl">O'rtacha likelar</div>
+    </div>
+    <div class="kpi" style="--c:var(--orange)">
+      <div class="kpi-icon">⚡</div>
+      <div class="kpi-val">${t.ratio || 'N/A'}</div>
+      <div class="kpi-lbl">Shorts / Standard</div>
+    </div>
+    <div class="kpi" style="--c:var(--green)">
+      <div class="kpi-icon">⏱️</div>
+      <div class="kpi-val">${d.average_formatted || 'N/A'}</div>
+      <div class="kpi-lbl">O'rtacha davomiylik</div>
+    </div>
+    <div class="kpi" style="--c:var(--purple)">
+      <div class="kpi-icon">📢</div>
+      <div class="kpi-val" style="font-size:.9rem">${(ch.most_active_channel || 'N/A').slice(0, 20)}</div>
+      <div class="kpi-lbl">Eng faol kanal</div>
+    </div>`;
+
+  // Destroy old charts
+  Object.values(state.charts).forEach(c => c.destroy());
+  state.charts = {};
+
+  const trunc = (s, n=22) => s && s.length > n ? s.slice(0, n) + '…' : (s || '');
+
+  Chart.defaults.color = '#6b6b85';
+  Chart.defaults.borderColor = '#2a2a3d';
+
+  if (videos && videos.length) {
+    const labels = videos.map(v => trunc(v.video_title));
+
+    function grad(ctx, c) {
+      const g = ctx.createLinearGradient(0, 0, 0, 200);
+      g.addColorStop(0, c + 'cc'); g.addColorStop(1, c + '22');
+      return g;
+    }
+
+    function bar(id, data, color) {
+      const ctx = document.getElementById(id).getContext('2d');
+      state.charts[id] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ data, backgroundColor: grad(ctx, color), borderColor: color, borderWidth: 1, borderRadius: 5 }] },
+        options: { responsive: true, plugins: { legend: { display: false } },
+          scales: { x: { ticks: { maxRotation: 40, font: { size: 9 } } },
+            y: { ticks: { callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v } } } }
+      });
+    }
+
+    bar('cViews', videos.map(v => v.view_count || 0), '#4a7eff');
+    bar('cLikes', videos.map(v => v.like_count  || 0), '#e63950');
+    bar('cDur',   videos.map(v => v.duration_seconds || 0), '#1db954');
+  }
+
+  // Pie
+  const pCtx = document.getElementById('cType').getContext('2d');
+  state.charts['cType'] = new Chart(pCtx, {
+    type: 'doughnut',
+    data: { labels: ['Shorts', 'Standard'],
+      datasets: [{ data: [t.shorts || 0, t.standard || 0],
+        backgroundColor: ['#e63950', '#4a7eff'],
+        borderColor: '#11111c', borderWidth: 3, hoverOffset: 8 }] },
+    options: { responsive: true, cutout: '62%',
+      plugins: { legend: { position: 'bottom', labels: { padding: 14, usePointStyle: true, font: { size: 11 } } } } }
+  });
+}
+
+function setWsStatus(ok) {
+  document.getElementById('wsDot').className = 'ws-dot' + (ok ? ' connected' : '');
+  document.getElementById('wsStatus').textContent = ok ? 'WebSocket ulandi' : 'Ulanish yo\'q';
+}
+</script>
+</body>
+</html>

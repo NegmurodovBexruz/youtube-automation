@@ -1,0 +1,26 @@
+# YouTube Web Automation — Playwright async + PostgreSQL
+# O'rnatish:
+#   pip install -r requirements.txt
+#   playwright install chromium
+
+# ── FastAPI Backend ──────────────────────────────
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+websockets==12.0
+python-multipart==0.0.9
+
+# ── Database (PostgreSQL) ────────────────────────
+sqlalchemy[asyncio]==2.0.30
+asyncpg==0.29.0
+alembic==1.13.1
+
+# ── Brauzer avtomatsiyasi ────────────────────────
+playwright==1.44.0
+
+# ── HTML parsing ─────────────────────────────────
+beautifulsoup4==4.12.3
+
+# ── Utility ──────────────────────────────────────
+python-dotenv==1.0.1
+pandas==2.2.2
+psycopg2-binary

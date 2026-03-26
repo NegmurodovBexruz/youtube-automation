@@ -1,0 +1,47 @@
+# Python
+
+**pycache**/
+*.py[cod]
+
+# Virtual environments
+
+venv
+venv/
+.venv/
+env/
+
+# Environment variables
+
+.env
+.env.*
+
+# Logs
+
+*.log
+automation.log
+
+# Generated output
+
+output/
+
+# Database / volumes
+
+postgres_data/
+*.db
+*.sqlite3
+
+# Build artifacts
+
+build/
+dist/
+*.egg-info/
+
+# IDE
+
+.vscode/
+.idea/
+
+# OS
+
+.DS_Store
+Thumbs.db

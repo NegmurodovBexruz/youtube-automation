@@ -24,3 +24,5 @@ beautifulsoup4==4.12.3
 python-dotenv==1.0.1
 pandas==2.2.2
 psycopg2-binary
+
+xvfbwrapper==0.2.9
